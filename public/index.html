@@ -1,0 +1,104 @@
+<html>
+  <body id="app"></body>
+</html>
+
+<script>
+  const appElement = document.getElementById('app');
+
+  const clearApp = () => {
+    while (appElement.lastElementChild) {
+      appElement.removeChild(appElement.lastElementChild);
+    }
+  }
+
+  const renderLogin = () => {
+    const emailAddressElement = document.createElement('input');
+    emailAddressElement.setAttribute('type', 'email');
+    emailAddressElement.setAttribute('placeholder', 'Email Address');
+    const passwordElement = document.createElement('input');
+    passwordElement.setAttribute('type', 'password');
+    passwordElement.setAttribute('placeholder', 'Password');
+    const submitBtn = document.createElement('button');
+    submitBtn.innerText = 'Login';
+    submitBtn.onclick = async () => {
+      const response = await fetch('/auth', {
+        method: 'post',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          emailAddress: emailAddressElement.value,
+          password: passwordElement.value,
+        }),
+      });
+      if (response.status === 200) {
+        const { token } = await response.json();
+        clearApp();
+        renderQRCode(token);
+      } else {
+        alert('Invalid credentials');
+      }
+    };
+    appElement.appendChild(emailAddressElement);
+    appElement.appendChild(passwordElement);
+    appElement.appendChild(submitBtn);
+  };
+
+  const renderQRCode = async (accessToken) => {
+    const response = await fetch('/totp', {
+      method: 'get',
+      headers: {
+        'Authorization': accessToken,
+      },
+    });
+    const { qrcode } = await response.json();
+    if (qrcode) {
+      const txtInfoElement = document.createElement('h1');
+      txtInfoElement.innerText = 'Use o google auth para escanear o qrcode:';
+      const imgElement = document.createElement('img');
+      const submitButton = document.createElement('button');
+      submitButton.innerText = 'Próximo';
+      submitButton.onclick = () => {
+        clearApp();
+        renderVerifyToken(accessToken);
+      };
+      imgElement.setAttribute('src', qrcode);
+      appElement.appendChild(txtInfoElement);
+      appElement.appendChild(imgElement);
+      appElement.appendChild(submitButton);
+    } else {
+      renderVerifyToken(accessToken);
+    }
+  };
+
+  const renderVerifyToken = (accessToken) => {
+    const googleAuthTokenElement = document.createElement('input');
+    googleAuthTokenElement.setAttribute('placeholder', 'Informe o token aqui');
+    const submitButton = document.createElement('button');
+    submitButton.innerText = 'Confirmar';
+    submitButton.onclick = async () => {
+      const response = await fetch('/totp', {
+        method: 'post',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': accessToken,
+        },
+        body: JSON.stringify({
+          token: googleAuthTokenElement.value,
+        }),
+      });
+      if (response.status === 200) {
+        const { verified } = await response.json();
+        if (verified) {
+          alert('Verificado com sucesso!');
+        } else {
+          alert('Token inválido, tente novamente!');
+        }
+      }
+    };
+    appElement.appendChild(googleAuthTokenElement);
+    appElement.appendChild(submitButton);
+  };
+
+  renderLogin();
+</script>
